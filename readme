@@ -1,0 +1,3 @@
+用tag 来标记每个请求实体,相同的tag用同一个数据，
+借助guava同时支持callback形式和observer形式
+
