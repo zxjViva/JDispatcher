@@ -1,8 +1,8 @@
 package com.zxj.jdispatcher.simple;
 
-import com.zxj.jdispatcher.dispatcher.AbsThing;
+import com.zxj.jdispatcher.dispatcher.AbsEvent;
 
-public class TakeTimeThing extends AbsThing<TakeTimeBean> {
+public class TakeTimeEvent extends AbsEvent<TakeTimeBean> {
     @Override
     public TakeTimeBean start() {
         try {

@@ -1,5 +1,6 @@
 package com.zxj.jdispatcher.dispatcher;
 
+import android.content.Context;
 import android.os.Handler;
 import android.os.Looper;
 
@@ -12,21 +13,22 @@ import org.checkerframework.checker.nullness.compatqual.NullableDecl;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executors;
 
-public class JDispatcher<T>{
+public class JDispatcher<T> {
     static Handler handler = new Handler(Looper.getMainLooper());
-    public JCallback<T> start(Class<? extends AbsThing> clazz, Callback<T> callback){
+
+    public JCallback<T> start(Class<? extends AbsEvent> clazz, Context context, Callback<T> callback) {
         final JCallback<T> tjCallback = new JCallback<>(callback);
-        AbsThing absThing = getIThing(clazz);
-        Futures.addCallback(absThing.startFuture(), new FutureCallback<T>() {
+        AbsEvent absEvent = getEvent(clazz);
+        Futures.addCallback(absEvent.startFuture(context), new FutureCallback<T>() {
             private final Callback<T> realCallback = tjCallback.callback;
 
             @Override
             public void onSuccess(@NullableDecl final T result) {
-                if (!tjCallback.cancel){
+                if (!tjCallback.cancel) {
                     handler.post(new Runnable() {
                         @Override
                         public void run() {
-                            realCallback.onResult(result,null);
+                            realCallback.onResult(result, null);
                         }
                     });
                 }
@@ -34,11 +36,11 @@ public class JDispatcher<T>{
 
             @Override
             public void onFailure(final Throwable t) {
-                if (!tjCallback.cancel){
+                if (!tjCallback.cancel) {
                     handler.post(new Runnable() {
                         @Override
                         public void run() {
-                            realCallback.onResult(null,t);
+                            realCallback.onResult(null, t);
                         }
                     });
                 }
@@ -47,20 +49,26 @@ public class JDispatcher<T>{
         return tjCallback;
     }
 
-    public JObserver<T> start(Class<? extends AbsThing> clazz, Observer<T> callback){
+    //事件级的取消，不是针对回调级别的，
+    public void cancelEvent(Class<? extends AbsEvent> clazz) {
+        AbsEvent absEvent = getEvent(clazz);
+        absEvent.cancel();
+    }
+
+    public JObserver<T> start(Class<? extends AbsEvent> clazz, Context context, Observer<T> callback) {
         final JObserver<T> tjObserver = new JObserver<>(callback);
         tjObserver.register();
-        AbsThing absThing = getIThing(clazz);
-        absThing.startFuture();
+        AbsEvent absEvent = getEvent(clazz);
+        absEvent.startFuture(context);
         return tjObserver;
     }
 
-    public JObserver<T> startSticky(Class<? extends AbsThing> clazz, Observer<T> callback){
+    public JObserver<T> startSticky(Class<? extends AbsEvent> clazz, Context context, Observer<T> callback) {
         final JObserver<T> tjObserver = new JObserver<>(callback);
 
-        AbsThing absThing = getIThing(clazz);
-        ListenableFuture<T> listenableFuture = absThing.startFuture();
-        if (listenableFuture.isDone()){
+        AbsEvent absEvent = getEvent(clazz);
+        ListenableFuture<T> listenableFuture = absEvent.startFuture(context);
+        if (listenableFuture.isDone()) {
             Message<T> message = new Message<>();
             try {
                 message.result = listenableFuture.get();
@@ -68,27 +76,27 @@ public class JDispatcher<T>{
                 message.error = e;
             }
             tjObserver.onMessageEvent(message);
-        }else {
+        } else {
             tjObserver.register();
         }
 
         return tjObserver;
     }
 
-    public T start(Class<? extends AbsThing> clazz){
-        AbsThing<T> absThing = getIThing(clazz);
+    public T start(Class<? extends AbsEvent> clazz, Context context) {
+        AbsEvent<T> absEvent = getEvent(clazz);
         try {
-            return absThing.startFuture().get();
+            return absEvent.startFuture(context).get();
         } catch (ExecutionException | InterruptedException e) {
             return null;
         }
     }
 
-    private AbsThing<T> getIThing(Class<? extends AbsThing> clazz) {
-        AbsThing<T> absThing = ThingQueue.get(clazz);
-        if (absThing == null){
-            absThing = ThingQueue.add(clazz);
+    private AbsEvent<T> getEvent(Class<? extends AbsEvent> clazz) {
+        AbsEvent<T> absEvent = EventQueue.get(clazz);
+        if (absEvent == null) {
+            absEvent = EventQueue.add(clazz);
         }
-        return absThing;
+        return absEvent;
     }
 }
